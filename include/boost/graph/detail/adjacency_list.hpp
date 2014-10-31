@@ -234,7 +234,7 @@ namespace boost {
     {
     public:
       typedef no_property property_type;
-      inline stored_edge() { }
+      inline stored_edge() : m_target() { }
       inline stored_edge(Vertex target, const no_property& = no_property())
         : m_target(target) { }
       // Need to write this explicitly so stored_edge_property can
@@ -1800,18 +1800,23 @@ namespace boost {
 
       inline adj_list_impl() { }
 
-      inline adj_list_impl(const adj_list_impl& x) {
-        copy_impl(x);
-      }
-      inline adj_list_impl& operator=(const adj_list_impl& x) {
+      adj_list_impl(const adj_list_impl& x) { copy_impl(x); }
+      adj_list_impl(adj_list_impl&& x) { move_impl(x); }
+
+      adj_list_impl& operator=(const adj_list_impl& x) {
         this->clear();
         copy_impl(x);
         return *this;
       }
+
+      adj_list_impl& operator=(adj_list_impl&& x) {
+        this->clear();
+        move_impl(x);
+        return *this;
+      }
+
       inline void clear() {
-        for (typename StoredVertexList::iterator i = m_vertices.begin();
-             i != m_vertices.end(); ++i)
-          delete (stored_vertex*)*i;
+        delete_stored_vertices();
         m_vertices.clear();
         m_edges.clear();
       }
@@ -1823,7 +1828,7 @@ namespace boost {
       inline adj_list_impl(vertices_size_type num_vertices,
                            EdgeIterator first, EdgeIterator last)
       {
-        vertex_descriptor* v = new vertex_descriptor[num_vertices];
+        std::unique_ptr<vertex_descriptor[]> v (new vertex_descriptor[num_vertices]);
         for (vertices_size_type i = 0; i < num_vertices; ++i)
           v[i] = add_vertex(static_cast<Derived&>(*this));
 
@@ -1831,14 +1836,13 @@ namespace boost {
           add_edge(v[(*first).first], v[(*first).second], *this);
           ++first;
         }
-        delete [] v;
       }
       template <class EdgeIterator, class EdgePropertyIterator>
       inline adj_list_impl(vertices_size_type num_vertices,
                            EdgeIterator first, EdgeIterator last,
                            EdgePropertyIterator ep_iter)
       {
-        vertex_descriptor* v = new vertex_descriptor[num_vertices];
+        std::unique_ptr<vertex_descriptor[]> v (new vertex_descriptor[num_vertices]);
         for (vertices_size_type i = 0; i < num_vertices; ++i)
           v[i] = add_vertex(static_cast<Derived&>(*this));
 
@@ -1847,13 +1851,8 @@ namespace boost {
           ++first;
           ++ep_iter;
         }
-        delete [] v;
       }
-      ~adj_list_impl() {
-        for (typename StoredVertexList::iterator i = m_vertices.begin();
-             i != m_vertices.end(); ++i)
-          delete (stored_vertex*)*i;
-      }
+      ~adj_list_impl() { delete_stored_vertices(); }
       //    protected:
       inline OutEdgeList& out_edge_list(vertex_descriptor v) {
         stored_vertex* sv = (stored_vertex*)v;
@@ -1896,9 +1895,29 @@ namespace boost {
         }
       }
 
-
-      typename Config::EdgeContainer m_edges;
+      EdgeContainer m_edges;
       StoredVertexList m_vertices;
+
+    private:
+      void delete_stored_vertices()
+      {
+        for (auto v: m_vertices.begin())
+          delete (stored_vertex*)v;
+      }
+      void move_impl(adj_list_impl && x)
+      {
+        move_impl(std::move(x),
+                  std::integral_constant<bool,
+                  std::is_move_assignable<EdgeContainer>::value &&
+                  std::is_move_assignable<StoredVertexList>::value>());
+      }
+
+      void move_impl(adj_list_impl && x, std::true_type)
+      {
+        m_vertices = std::move(x.m_vertices) ;
+        m_edges = std::move(x.m_edges) ;
+      }
+      void move_impl(adj_list_impl &&x, std::false_type) { copy_impl(x) ; }
     };
 
     // O(1)

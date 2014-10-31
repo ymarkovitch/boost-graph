@@ -17,6 +17,7 @@
 #include <vector>
 #include <list>
 #include <set>
+#include <memory>
 
 #include <boost/unordered_set.hpp>
 
@@ -27,8 +28,6 @@
 #    include <slist>
 #  endif
 #endif
-
-#include <boost/scoped_ptr.hpp>
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/graph_mutability_traits.hpp>
@@ -314,11 +313,10 @@ namespace boost {
     adjacency_list& operator=(const adjacency_list& x) {
       // TBD: probably should give the strong guarantee
       if (&x != this) {
+        // Create a property map first to ensure no exceptions after partial assignment
+        property_ptr pcopy (new graph_property_type(*x.m_property));
         Base::operator=(x);
-
-        // Copy/swap the ptr since we can't just assign it...
-        property_ptr p(new graph_property_type(*x.m_property));
-        m_property.swap(p);
+        m_property = std::move(pcopy);
       }
       return *this;
     }
@@ -382,7 +380,7 @@ namespace boost {
 #endif
 
     //  protected:  (would be protected if friends were more portable)
-    typedef scoped_ptr<graph_property_type> property_ptr;
+    typedef std::unique_ptr<graph_property_type> property_ptr;
     property_ptr  m_property;
   };
 
