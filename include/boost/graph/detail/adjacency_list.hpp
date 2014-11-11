@@ -2820,6 +2820,25 @@ namespace boost {
 
 }
 
+namespace std {
+
+  template<typename V> struct hash ;
+
+  template<typename V>
+  struct hash<boost::detail::stored_edge<V> > :
+    boost::hash<boost::detail::stored_edge<V> >,
+    unary_function<boost::detail::stored_edge<V>, size_t> {};
+
+  template <typename V, typename P>
+  struct hash<boost::detail::stored_edge_property<V,P> > :
+    boost::hash<boost::detail::stored_edge_property<V,P> >,
+    unary_function<boost::detail::stored_edge_property<V,P>, size_t> {};
+
+  template <typename V, typename I, typename P>
+  struct hash<boost::detail::stored_edge_iter<V,I,P> > :
+    boost::hash<boost::detail::stored_edge_iter<V,I,P> >,
+    unary_function<boost::detail::stored_edge_iter<V,I,P>, size_t> {};
+}
 
 #endif // BOOST_GRAPH_DETAIL_DETAIL_ADJACENCY_LIST_CCT
 
